@@ -1,0 +1,80 @@
+###############################################################################
+
+def run_program(user_id, seed_data_hash)
+  friends_trades = get_friends_trades_past_week(user_id, seed_data_hash)
+  friends_trades_hash = populate_friends_trades_hash(friends_trades)
+  create_ranked_alert(friends_trades_hash).each {|str| puts str}
+end
+
+Overall time complexity of the solution is O(nmlogm) because get_trade_transactions_for_user uses Ruby's sort_by algorithm which is O(nlogn) and is called within the friends.map enumerator in the get_friends_trades_past_week method. See details below.
+
+Overall space complexity of the solution is O(nm) where n is the number of friends for the user and m is the number of trades for friend. See below for details.
+
+###############################################################################
+
+def get_trade_transactions_for_user(user_id, data_hash)
+	trade_strings = []
+	data_hash[user_id]['trades'].each do |hash|
+		trade_strings << "#{hash['date']},#{hash['action']},#{hash['ticker']}"
+	end
+	return trade_strings.sort_by!{|trade_string| trade_string.split(',')[0]}.reverse!
+end
+
+def get_friends_trades_past_week(user_id, data_hash)
+  friends = get_friends_list_for_user(user_id, data_hash)
+  friends_trades = friends.map! {|friend| 
+    get_trade_transactions_for_user(friend, data_hash)
+  }
+  friends_trades.flatten!.reject!{|trade_string| 
+    Date.parse(trade_string.split(',')[0]) <= Date.today - 7
+  }
+  return friends_trades
+end
+
+Time complexity is O(nmlogm) where n is number of friends and m is number of trades for friend. This is because get_trade_transactions_for_user uses Ruby's sort_by algorithm which is O(nlogn) and is called within friends.map enumerator.
+
+Space complexity is O(nm) where n is the number of friends and m is the number of trades for friend.
+
+###############################################################################
+
+def create_ranked_alert(trades_hash)
+  alerts = [] 
+  trades_hash.each do |ticker, action_hash|
+    alerts << [ticker, action_hash["BUY"] - action_hash["SELL"]]
+  end
+  alerts.sort_by!{|arr| arr[1].abs}.reverse!.reject!{|arr| arr[1] == 0}
+  alert_strings = alerts.map! do |arr|
+    arr[1] > 0 ? "#{arr[1]},BUY,#{arr[0]}" : "#{arr[1].abs},SELL,#{arr[0]}"
+  end
+  return alert_strings
+end
+
+Space Complexity:
+Each value passed in from the trades_hash (n) is pushed into an array and mapped into a custom string. We can assume each string has a space complexity of 15 or less because it would be absurd to have a trade difference of more than 99,999 friends and ticker symbols are always <= 4. Therefor, the space complexity for create_ranked_alert method is O(n) where n is the number of objects in the trades_hash.
+
+Time Complexity:
+Creating an empty array is O(1). Iterating over each object in the trades_hash, transforming it, and adding it to the array is O(n). Sorting the alerts array is O(nlogn). Mapping the alerts is again O(n) because it can safely be assumed that the strings length is <= 15. Therefor the time complexity for create_ranked_alerts is O(nlogn).
+
+###############################################################################
+
+def populate_friends_trades_hash(friends_trades)
+  friends_trades_hash = Hash[friends_trades.map{|trade| [trade.split(",")[2], {"BUY" => 0, "SELL" => 0}]}]
+  friends_trades.each do |trade|
+    friends_trades_hash[trade.split(",")[2]][trade.split(",")[1]] += 1
+  end
+  return friends_trades_hash
+end
+
+Time complexity is O(n).
+
+Space complexity is O(n).
+
+###############################################################################
+
+
+
+
+
+
+
+
